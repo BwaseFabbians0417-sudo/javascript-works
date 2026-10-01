@@ -68,10 +68,23 @@ function acceptArr(arr) {
 }
 acceptArr(countries)
 acceptArr(webTechs)
-  ///function print //
-function printNum(start, end) {
-    for (let i = start; i <= end; i++) {
-        console.log(i);
+
+// ///function print  (1-50)//
+//  functionprintNum = () => {
+//   for (let i = 1; i <= 50; i++) {
+//     console.log(i);
+//   }
+// }
+
+// printNum();
+
+
+function turnArrToupper(arr) {
+    const upperArr = [];
+    for (let i = 0; i < arr.length; i++) {
+        upperArr.push(arr[i].toUpperCase());
     }
+    return upperArr;
 }
-printNum(1, 50);
+
+console.log(turnArrToupper(fruits))
