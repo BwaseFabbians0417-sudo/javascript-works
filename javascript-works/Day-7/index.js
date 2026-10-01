@@ -68,3 +68,10 @@ function acceptArr(arr) {
 }
 acceptArr(countries)
 acceptArr(webTechs)
+  ///function print //
+function printNum(start, end) {
+    for (let i = start; i <= end; i++) {
+        console.log(i);
+    }
+}
+printNum(1, 50);
