@@ -1,12 +1,6 @@
-// ==========================================
-// DAY 8 - ASSIGNMENT
-// LEVEL 3
-// ==========================================
 
-
-// ==========================================
 // ASSIGNMENT 1: PERSON ACCOUNT
-// ==========================================
+
 
 const personAccount = {
 
@@ -109,9 +103,7 @@ console.log("New Expense:", personAccount.totalExpense());
 console.log("New Balance:", personAccount.accountBalance());
 
 
-// ==========================================
 // ASSIGNMENT 2: USERS ARRAY
-// ==========================================
 
 const users = [
     {
@@ -161,9 +153,8 @@ const users = [
 ];
 
 
-// ==========================================
 // SIGN UP
-// ==========================================
+
 
 function signUp(username, email, password) {
 
@@ -216,9 +207,9 @@ console.log(
 );
 
 
-// ==========================================
+
 // SIGN IN
-// ==========================================
+
 
 function signIn(email, password) {
 
@@ -256,9 +247,7 @@ console.log(
 );
 
 
-// ==========================================
 // ASSIGNMENT 3: PRODUCTS
-// ==========================================
 
 const products = [
 
@@ -324,9 +313,9 @@ const products = [
 ];
 
 
-// ==========================================
+
 // RATE PRODUCT
-// ==========================================
+
 
 function rateProduct(productId, userId, rate) {
 
@@ -369,9 +358,7 @@ console.log(
 );
 
 
-// ==========================================
 // AVERAGE RATING
-// ==========================================
 
 function averageRating(productId) {
 
@@ -419,9 +406,8 @@ console.log(
 );
 
 
-// ==========================================
 // ASSIGNMENT 4: LIKE PRODUCT
-// ==========================================
+
 
 function likeProduct(productId, userId) {
 

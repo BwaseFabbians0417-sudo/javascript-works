@@ -147,9 +147,7 @@ const users = {
 };
 
 
-// ==========================================
 // 1. FIND PERSON WITH MANY SKILLS
-// ==========================================
 
 let personWithMostSkills = "";
 let mostSkills = 0;
@@ -168,9 +166,8 @@ console.log("Person with most skills:", personWithMostSkills);
 console.log("Number of skills:", mostSkills);
 
 
-// ==========================================
+
 // 2. COUNT LOGGED-IN USERS
-// ==========================================
 
 let loggedInUsers = 0;
 
@@ -185,9 +182,7 @@ for (const user in users) {
 console.log("Logged-in users:", loggedInUsers);
 
 
-// ==========================================
 // 3. COUNT USERS WITH 50 OR MORE POINTS
-// ==========================================
 
 let usersWith50Points = 0;
 
@@ -202,9 +197,7 @@ for (const user in users) {
 console.log("Users with 50 or more points:", usersWith50Points);
 
 
-// ==========================================
 // 4. FIND MERN STACK DEVELOPERS
-// ==========================================
 
 console.log("MERN developers:");
 
@@ -225,10 +218,10 @@ for (const user in users) {
 }
 
 
-// ==========================================
+
 // 5. ADD YOUR NAME WITHOUT MODIFYING
 //    THE ORIGINAL USERS OBJECT
-// ==========================================
+
 
 const newUsers = Object.assign({}, users);
 
@@ -247,18 +240,18 @@ newUsers.Oluwapelumi = {
 console.log("New users object:", newUsers);
 
 
-// ==========================================
+
 // 6. GET ALL KEYS / PROPERTIES
-// ==========================================
+
 
 console.log("User keys:");
 
 console.log(Object.keys(users));
 
 
-// ==========================================
+
 // 7. GET ALL VALUES
-// ==========================================
+
 
 console.log("User values:");
 
