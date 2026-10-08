@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eaf3ff">
+  <meta name="description" content="A calm, clear weather dashboard with current conditions and a five-day forecast.">
+  <title>Fengs Limited Weather — Live Forecast</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="weather.js" defer></script>
+</head>
+<body>
+  <div class="sky-art" aria-hidden="true"><span class="sky-orb"></span><span class="sky-cloud sky-cloud-one"></span><span class="sky-cloud sky-cloud-two"></span></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Fengs Limited Weather home">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="7"/><path d="M20 3v5M20 32v5M3 20h5M32 20h5M8 8l4 4m16 16 4 4M32 8l-4 4M12 28l-4 4"/></svg></span>
+        <span>Fengs Limited<span class="brand-light"> Weather</span></span>
+      </a>
+      <form class="search-form" id="search-form" role="search">
+        <span class="search-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></span>
+        <label class="visually-hidden" for="city-search">Search for a city</label>
+        <input id="city-search" name="city" type="search" autocomplete="off" placeholder="Search a city in Nigeria…" required>
+        <div class="search-results" id="search-results" role="listbox" aria-label="Location suggestions" hidden></div>
+      </form>
+      <div class="top-actions">
+        <button class="location-button" id="location-button" type="button" aria-label="Use my current location" title="Use my current location">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>My location</span>
+        </button>
+        <div class="unit-switch" role="group" aria-label="Temperature units">
+          <button type="button" class="unit-button active" data-unit="c" aria-pressed="true">°C</button>
+          <button type="button" class="unit-button" data-unit="f" aria-pressed="false">°F</button>
+        </div>
+      </div>
+    </header>
+    <main id="top">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow"><span class="live-dot"></span> YOUR WEATHER, AT A GLANCE</p>
+          <h1>Look outside.  
+<span>Plan what’s next.</span></h1>
+        </div>
+        <p class="updated-label" id="updated-label">Getting the latest forecast…</p>
+      </div>
+
+      <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="overview-grid" aria-label="Current weather overview">
+        <article class="current-card">
+          <div class="current-card-top">
+            <div>
+              <p class="card-kicker">CURRENT WEATHER</p>
+              <h2 id="location-name">Lagos</h2>
+              <p class="location-subtitle" id="location-subtitle">Lagos State, Nigeria</p>
+            </div>
+            <span class="current-date" id="current-date">Today</span>
+          </div>
+          <div class="current-main">
+            <div class="temperature-lockup"><span class="temperature" id="current-temperature">--</span><span class="degree-mark" id="current-degree">°</span></div>
+            <div class="current-description"><div id="current-icon" class="current-weather-icon" aria-hidden="true"></div><p id="current-condition">Loading conditions</p></div>
+          </div>
+          <div class="current-divider"></div>
+          <div class="current-bottom">
+            <p><span class="mini-weather" id="current-mini-icon" aria-hidden="true"></span><span id="daily-summary">A fresh look at your local sky.</span></p>
+          </div>
+          <div class="card-cloud card-cloud-a" aria-hidden="true"></div><div class="card-cloud card-cloud-b" aria-hidden="true"></div>
+        </article>
+
+        <div class="highlights-column">
+          <div class="subsection-title"><div><p class="card-kicker">THE DETAILS</p><h2>Today’s highlights</h2></div><span class="sun-ornament" aria-hidden="true">✳</span></div>
+          <div class="metrics-grid">
+            <article class="metric-card"><div class="metric-label"><span class="metric-icon" data-icon="humidity"></span><span>Humidity</span></div><p class="metric-value"><span id="humidity">--</span><small>%</small></p><p class="metric-note" id="humidity-note">Comfort level</p></article>
+            <article class="metric-card"><div class="metric-label"><span class="metric-icon" data-icon="wind"></span><span>Wind</span></div><p class="metric-value"><span id="wind-speed">--</span><small>km/h</small></p><p class="metric-note" id="wind-note">Light breeze</p></article>
+            <article class="metric-card"><div class="metric-label"><span class="metric-icon" data-icon="visibility"></span><span>Visibility</span></div><p class="metric-value metric-time" id="visibility">-- km</p><p class="metric-note" id="visibility-note">Checking the horizon</p></article>
+            <article class="metric-card"><div class="metric-label"><span class="metric-icon" data-icon="thermometer"></span><span>Feels like</span></div><p class="metric-value metric-time" id="feels-like">--°</p><p class="metric-note">Perceived temperature</p></article>
+            <article class="metric-card"><div class="metric-label"><span class="metric-icon" data-icon="sunrise"></span><span>Sunrise</span></div><p class="metric-value metric-time" id="sunrise">--:--</p><p class="metric-note">A new day begins</p></article>
+            <article class="metric-card"><div class="metric-label"><span class="metric-icon" data-icon="sunset"></span><span>Sunset</span></div><p class="metric-value metric-time" id="sunset">--:--</p><p class="metric-note">Golden hour ahead</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="forecast-grid" aria-label="Forecast details">
+        <article class="panel hourly-panel">
+          <div class="panel-heading"><div><p class="card-kicker">THE NEXT 24 HOURS</p><h2>Hour by hour</h2></div><span class="panel-date" id="hourly-date">Local time</span></div>
+          <div class="hourly-list" id="hourly-list" aria-live="polite"><p class="loading-copy">Loading the hourly forecast…</p></div>
+        </article>
+        <article class="panel daily-panel">
+          <div class="panel-heading"><div><p class="card-kicker">PLAN AHEAD</p><h2>5-day outlook</h2></div><span class="week-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span></div>
+          <div class="daily-list" id="daily-list" aria-live="polite"><p class="loading-copy">Loading the five-day outlook…</p></div>
+        </article>
+      </section>
+      <footer class="footer"><span>Made for the moments between plans.</span><span>Forecast data by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a></span></footer>
+    </main>
+  </div>
+</body>
+</html>
