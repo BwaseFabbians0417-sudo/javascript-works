@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101b33">
+    <meta name="description" content="Fengs Limited registration for applicants aged 18 and older.">
+    <title>Fengs Limited | Registration</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="index.js" defer></script>
+</head>
+<body>
+    <main class="page-shell">
+        <section class="registration-card" aria-labelledby="page-title">
+            <div class="card-topline">
+                <a class="brand" href="#" aria-label="Fengs Limited home">
+                    <span class="brand-mark" aria-hidden="true">F</span>
+                    <span>Fengs Limited</span>
+                </a>
+                <span class="age-badge">Ages 18 and older</span>
+            </div>
+
+            <div class="intro">
+                <p class="eyebrow">WELCOME ABOARD</p>
+                <h1 id="page-title">Create your profile</h1>
+                <p class="intro-copy">
+                    Fill in the details below to check if you can register.
+                </p>
+            </div>
+            <div class="message-panel" id="message-panel" role="status" aria-live="polite" hidden></div>
+            <form class="registration-form" id="registration-form">
+                <div class="form-field">
+                    <label for="reg-name">Full name</label>
+                    <input
+                        id="reg-name"
+                        name="name"
+                        type="text"
+                        placeholder="Your first and last name"
+                        autocomplete="name"
+                        required
+                    >
+                </div>
+
+                <div class="form-field">
+                    <label for="reg-email">Email address</label>
+                    <input
+                        id="reg-email"
+                        name="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        autocomplete="email"
+                        required
+                    >
+                </div>
+
+                <div class="form-field">
+                    <label for="reg-age">Your age</label>
+                    <input
+                        id="reg-age"
+                        name="age"
+                        type="number"
+                        min="0"
+                        max="130"
+                        step="1"
+                        inputmode="numeric"
+                        placeholder="Enter your age in years"
+                        required
+                    >
+                    <span class="field-help">You must be at least 18 years old to register.</span>
+                </div>
+
+                <div class="form-field">
+                    <label for="reg-pass">Password</label>
+                    <input
+                        id="reg-pass"
+                        name="password"
+                        type="password"
+                        minlength="8"
+                        autocomplete="new-password"
+                        placeholder="At least 8 characters"
+                        required
+                    >
+                </div>
+                <button class="submit-button" type="submit">
+                    Check eligibility
+                    <span aria-hidden="true">→</span>
+                </button>
+            </form>
+            <p class="privacy-note">
+                Your details are only checked in this browser and are not saved.
+            </p>
+        </section>
+
+        <footer class="page-footer">
+            A simple, private age eligibility check.
+        </footer>
+    </main>
+</body>
+</html>

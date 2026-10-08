@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Page information that the browser uses before showing the app. -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time-Tracked To-Do</title>
+</head>
+<body>
+    <!-- The main element holds all of the visible to-do app content. -->
+    <main class="container">
+        <!-- App title and the button that reloads the starter tasks. -->
+        <header class="header-container">
+            <div class="title-group">
+                <h1 class="app-title">NEO // CHRONO</h1>
+                <p class="app-description">
+                    Plan your day, one task at a time.
+                </p>
+            </div>
+
+            <!-- The id lets JavaScript find this button and restore the defaults. -->
+            <button class="restore-button" id="restore-button" type="button">
+                Reload 8 Defaults
+            </button>
+        </header>
+
+        <!-- This section contains the form used to create a new task. -->
+        <section class="task-entry" aria-labelledby="task-entry-heading">
+            <h2 class="section-heading" id="task-entry-heading">Add a task</h2>
+            <p class="section-help">
+                Give your task a name and, if you like, choose a time.
+            </p>
+
+            <!-- JavaScript listens for this form's submit event. -->
+            <form class="task-form" id="task-form">
+                <!-- A label tells people and assistive technology what to enter. -->
+                <div class="form-field task-name-field">
+                    <label for="task-input">Task name</label>
+                    <input
+                        class="task-input"
+                        id="task-input"
+                        name="task"
+                        type="text"
+                        placeholder="What do you need to do?"
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+
+                <div class="form-field task-time-field">
+                    <label for="task-time">Time <span>(optional)</span></label>
+                    <input
+                        class="time-input"
+                        id="task-time"
+                        name="time"
+                        type="time"
+                    >
+                </div>
+
+                <!-- Submitting the form runs the JavaScript that adds the task. -->
+                <button class="add-button" id="add-task-button" type="submit">
+                    LAUNCH
+                </button>
+            </form>
+        </section>
+
+        <!-- JavaScript fills this list with tasks using the template below. -->
+        <section class="tasks-section" aria-labelledby="tasks-heading">
+            <div class="tasks-heading">
+                <h2 class="section-heading" id="tasks-heading">Your tasks</h2>
+                <p class="section-help">Tasks with times appear in time order.</p>
+            </div>
+            <ul class="task-list" id="task-list" aria-label="Tasks"></ul>
+        </section>
+    </main>
+
+    <!--
+        A template is a reusable piece of HTML. JavaScript makes a copy of
+        this task row for every task, then fills in its name and time.
+    -->
+    <template id="task-template">
+        <li class="task-item">
+            <div class="task-main">
+                <button class="task-checkbox" type="button">
+                    <span class="checkbox-marker" aria-hidden="true">✓</span>
+                </button>
+                <div class="task-details">
+                    <span class="task-text"></span>
+                    <span class="task-time"></span>
+                </div>
+            </div>
+            <button class="delete-button" type="button" aria-label="Delete task">
+                ✕
+            </button>
+        </li>
+    </template>
+    <audio id="check-sound" preload="auto"></audio>
+    <audio id="delete-sound" preload="auto"></audio>
+    <script src="to-do.js"></script>
+</body>
+</html>
