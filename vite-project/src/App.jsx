@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import supabase, { supabaseEnabled } from './lib/supabase.js'
-import { createLocalOrder, getLocalOrders, getLocalSession, registerLocalAccount, signInLocalAccount, signOutLocalAccount, updateLocalProfile } from './lib/localAccounts.js'
+import { cancelLocalOrder, createLocalOrder, getLocalOrders, getLocalSession, registerLocalAccount, signInLocalAccount, signOutLocalAccount, updateLocalProfile } from './lib/localAccounts.js'
 import { countries as deliveryCountries, formatRegionalPrice, getInitialLocalePreferences, languages, translate } from './lib/storefrontLocale.js'
 
 const supportEmail = 'OLORUNNIYIOLUWAPELUMI0417@GMAIL.COM'
@@ -410,6 +410,7 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
                 <article className="cart-item" key={key}>
                   <img src={imageUrl(product.image, 240)} alt="" onError={hideUnavailableImage} />
                   <div className="cart-item-details"><span>{t(categoryTranslationKeys[product.category] || product.category)} · {variant}</span><strong>{product.name}</strong><b>{formatPrice(product.price * quantity)}</b><div className="quantity-controls"><button type="button" onClick={() => onChangeQuantity(key, -1)} aria-label={`Remove one ${product.name}`}><Icon name="minus" size={14} /></button><span>{quantity}</span><button type="button" onClick={() => onChangeQuantity(key, 1)} aria-label={`Add one ${product.name}`}><Icon name="plus" size={14} /></button></div></div>
+                  <button className="cart-item-remove" type="button" onClick={() => onChangeQuantity(key, -quantity)} aria-label={t('cart.removeItem', { name: product.name })}>{t('cart.remove')}</button>
                 </article>
               ))}
             </div>
@@ -584,7 +585,8 @@ function AccountDialog({ user, recoveryMode, isStoreAdmin, localMode, orders, or
             </form>
             <div className="account-orders">
               <div className="account-orders-heading"><div><span className="eyebrow">{isStoreAdmin ? t('auth.admin') : t('auth.orders')}</span><h3>{isStoreAdmin ? t('auth.customerOrders') : t('auth.yourOrders')}</h3></div><button type="button" onClick={onLoadOrders}>{t('auth.refresh')}</button></div>
-              {ordersLoading ? <p>{t('auth.loadingOrders')}</p> : ordersError ? <p className="form-error">{ordersError}</p> : orders.length === 0 ? <p>{isStoreAdmin ? t('auth.noCustomerOrders') : t('auth.noOrders')}</p> : !isStoreAdmin && <div className="order-list">{orders.map((order) => <article className="order-history-item" key={order.id}><div><strong>{t('auth.request', { id: order.id.slice(0, 8).toUpperCase() })}</strong><span>{new Date(order.created_at).toLocaleDateString(dateLocale)}</span></div><span className={`order-status ${order.status === 'Delivered' ? 'order-status-delivered' : ''}`}>{order.status === 'Delivered' && <span className="delivery-check" aria-label="Delivery confirmed">✓</span>}{order.status}</span><p>{order.items.length === 1 ? t('auth.item') : t('auth.items', { count: order.items.length })} · {deliveryCountries.find((country) => country.code === order.country_code)?.flag} {order.city}, {deliveryCountries.find((country) => country.code === order.country_code)?.name}</p><strong>{formatPrice(Number(order.subtotal))}</strong></article>)}</div>}
+              {isStoreAdmin && <p className="admin-accept-hint">{t('auth.acceptHint')}</p>}
+              {ordersLoading ? <p>{t('auth.loadingOrders')}</p> : ordersError ? <p className="form-error">{ordersError}</p> : orders.length === 0 ? <p>{isStoreAdmin ? t('auth.noCustomerOrders') : t('auth.noOrders')}</p> : !isStoreAdmin && <div className="order-list">{orders.map((order) => <article className="order-history-item" key={order.id}><div><strong>{t('auth.request', { id: order.id.slice(0, 8).toUpperCase() })}</strong><span>{new Date(order.created_at).toLocaleDateString(dateLocale)}</span></div><span className={`order-status ${order.status === 'Delivered' ? 'order-status-delivered' : ''}`}>{order.status === 'Delivered' && <span className="delivery-check" aria-label="Delivery confirmed">✓</span>}{order.status}</span><p>{order.items.length === 1 ? t('auth.item') : t('auth.items', { count: order.items.length })} · {deliveryCountries.find((country) => country.code === order.country_code)?.flag} {order.city}, {deliveryCountries.find((country) => country.code === order.country_code)?.name}</p><strong>{formatPrice(Number(order.subtotal))}</strong>{order.status === 'Requested' && <button className="cancel-order-button" type="button" disabled={updatingOrderId === order.id} onClick={() => updateOrderStatus(order.id, 'Cancelled')}>{updatingOrderId === order.id ? t('auth.cancellingOrder') : t('auth.cancelOrder')}</button>}</article>)}</div>}
               {orderActionError && <p className="form-error" role="alert">{orderActionError}</p>}
               {isStoreAdmin && orders.length > 0 && <div className="admin-orders-list">{orders.map((order) => <article className="admin-order-item" key={order.id}><div className="admin-order-title"><strong>#{order.id.slice(0, 8).toUpperCase()} · {order.customer_name}</strong><span>{new Date(order.created_at).toLocaleString(dateLocale)}</span></div><p>{order.customer_email} · {order.customer_phone}</p><p>{order.street_address}, {order.city}{order.region ? `, ${order.region}` : ''}{order.postal_code ? ` ${order.postal_code}` : ''} · {deliveryCountries.find((country) => country.code === order.country_code)?.flag} {deliveryCountries.find((country) => country.code === order.country_code)?.name}</p><p>{order.items.map((item) => `${item.name} (${item.variant}) × ${item.quantity}`).join(' · ')}</p><div className="admin-order-footer"><strong>{formatPrice(Number(order.subtotal))}</strong><label>{t('auth.status')}<select value={order.status} disabled={updatingOrderId === order.id} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>{orderStatuses.map((status) => <option key={status}>{status}</option>)}</select></label></div></article>)}</div>}
             </div>
@@ -1115,14 +1117,39 @@ function App() {
   }
 
   async function updateOrderStatus(orderId, status) {
-    if (!supabase || !isStoreAdmin) throw new Error('You do not have permission to manage store orders.')
-    const { data, error } = await supabase
-      .from('storefront_orders')
-      .update({ status })
-      .eq('id', orderId)
-      .select('id, status')
-      .single()
-    if (error) throw error
+    if (!authUser) throw new Error(t('auth.adminPermission'))
+    let data
+    if (isStoreAdmin) {
+      if (!supabase) throw new Error(t('auth.adminPermission'))
+      const result = await supabase
+        .from('storefront_orders')
+        .update({ status })
+        .eq('id', orderId)
+        .select('id, status')
+        .single()
+      if (result.error) throw result.error
+      data = result.data
+    } else {
+      if (status !== 'Cancelled') throw new Error(t('auth.adminPermission'))
+      const requestedOrder = orders.find((order) => order.id === orderId)
+      if (!requestedOrder || requestedOrder.status !== 'Requested') {
+        throw new Error(t('auth.cancelOrderUnavailable'))
+      }
+      if (!supabase) {
+        data = cancelLocalOrder(authUser.id, orderId)
+      } else {
+        const result = await supabase
+          .from('storefront_orders')
+          .update({ status: 'Cancelled' })
+          .eq('id', orderId)
+          .eq('user_id', authUser.id)
+          .eq('status', 'Requested')
+          .select('id, status')
+          .single()
+        if (result.error) throw result.error
+        data = result.data
+      }
+    }
     setOrders((currentOrders) => currentOrders.map((order) => order.id === data.id ? { ...order, status: data.status } : order))
   }
 

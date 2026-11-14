@@ -939,3 +939,13 @@ body {
 @media (max-width: 760px) {
   body { background-image: linear-gradient(135deg, #e8ecdf8c, #e8ecdf70), url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=80'); }
 }
+.cart-drawer { overflow-y: auto; }
+.cart-items { flex: 0 0 auto; min-height: 72px; max-height: 28vh; }
+.cart-item-details { min-width: 0; flex: 1; }
+.cart-item-remove { align-self: flex-start; padding: 4px 0 4px 5px; border: 0; color: #78816c; background: transparent; font-size: 9px; text-decoration: underline; cursor: pointer; }
+.cart-item-remove:hover { color: #9b4546; }
+.cancel-order-button { justify-self: start; padding: 5px 9px; border: 1px solid #d6c6b3; border-radius: 4px; color: #7c493b; background: #fffdfa; font-size: 9px; cursor: pointer; }
+.cancel-order-button:hover:not(:disabled) { border-color: #ae7964; background: #faf2ed; }
+.cancel-order-button:disabled { cursor: wait; opacity: .6; }
+.admin-accept-hint { margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid #64734b; color: #526047; background: #eff2e7; font-size: 10px; line-height: 1.6; }
+.order-history-item > .cancel-order-button { margin-top: 3px; }

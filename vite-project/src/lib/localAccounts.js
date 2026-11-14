@@ -158,3 +158,19 @@ export function createLocalOrder(order) {
   writeStoredJson(ordersKey, [...orders, createdOrder])
   return createdOrder
 }
+
+export function cancelLocalOrder(userId, orderId) {
+  const orders = readStoredJson(ordersKey, [])
+  if (!Array.isArray(orders)) {
+    throw new Error('Saved local order data is invalid. Clear this site’s local storage and try again.')
+  }
+  const orderIndex = orders.findIndex((order) => order.id === orderId && order.user_id === userId)
+  if (orderIndex < 0) throw new Error('This order could not be found in your local account.')
+  if (orders[orderIndex].status !== 'Requested') {
+    throw new Error('Only orders awaiting store confirmation can be cancelled.')
+  }
+  const updatedOrders = [...orders]
+  updatedOrders[orderIndex] = { ...updatedOrders[orderIndex], status: 'Cancelled' }
+  writeStoredJson(ordersKey, updatedOrders)
+  return updatedOrders[orderIndex]
+}

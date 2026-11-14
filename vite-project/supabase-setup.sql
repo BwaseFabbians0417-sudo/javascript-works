@@ -68,6 +68,12 @@ create policy "Store admins update FENGS order status"
   using ((select public.is_fengs_storefront_admin()))
   with check ((select public.is_fengs_storefront_admin()));
 
+drop policy if exists "Customers cancel their unconfirmed FENGS orders" on public.storefront_orders;
+create policy "Customers cancel their unconfirmed FENGS orders"
+  on public.storefront_orders for update to authenticated
+  using ((select auth.uid()) = user_id and status = 'Requested')
+  with check ((select auth.uid()) = user_id and status = 'Cancelled');
+
 create index if not exists storefront_orders_user_created_idx
   on public.storefront_orders (user_id, created_at desc);
 
