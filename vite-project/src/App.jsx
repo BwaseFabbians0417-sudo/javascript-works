@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import supabase, { supabaseEnabled } from './lib/supabase.js'
 import { cancelLocalOrder, createLocalOrder, getLocalOrders, getLocalSession, registerLocalAccount, signInLocalAccount, signOutLocalAccount, updateLocalProfile } from './lib/localAccounts.js'
-import { createMockPayment } from './lib/mockPaymentApi.js'
 import { countries as deliveryCountries, formatRegionalPrice, getInitialLocalePreferences, languages, translate } from './lib/storefrontLocale.js'
 
 const supportEmail = 'OLORUNNIYIOLUWAPELUMI0417@GMAIL.COM'
 const supportPhone = '+7 952 243-27-85'
-const opayAccountName = 'olorunniyi oluwapelumi victor'
-const opayAccountNumber = '8145501592'
-const opayWebsite = 'https://www.opayweb.com'
 const orderStatuses = ['Requested', 'Confirmed', 'Preparing', 'Shipped', 'Delivered', 'Cancelled']
 
 const products = [
@@ -286,22 +282,8 @@ function buildOrderEmailHref(order, t, formatPrice) {
     `${t('slip.items')}:`,
     ...order.items.map((item) => `- ${item.name} · ${item.variant} × ${item.quantity} = ${formatPrice(item.unit_price_rub * item.quantity)}`),
     `${t('slip.subtotal')}: ${formatPrice(order.subtotal)}`,
-    '',
-    t('slip.emailManualPayment'),
   ].join('\n')
   return `mailto:${supportEmail}?subject=${encodeURIComponent(t('slip.emailOrderSubject', { id: order.id }))}&body=${encodeURIComponent(body)}`
-}
-
-function buildPaymentEmailHref(order, paymentReference, t) {
-  const body = [
-    'FENGS LUXE EMPIRE',
-    t('slip.emailPaymentIntro'),
-    `${t('slip.reference')}: ${order.id}`,
-    `${t('slip.paymentReference')}: ${paymentReference.trim() || '-'}`,
-    '',
-    t('slip.emailVerifyWarning'),
-  ].join('\n')
-  return `mailto:${supportEmail}?subject=${encodeURIComponent(t('slip.emailPaymentSubject', { id: order.id }))}&body=${encodeURIComponent(body)}`
 }
 
 function buildAdminReplyHref(order, t, formatPrice) {
@@ -318,67 +300,45 @@ function buildAdminReplyHref(order, t, formatPrice) {
   return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
-const demoPaymentMethods = [
-  { id: 'paystack', name: 'Paystack', mark: 'Paystack', style: 'paystack' },
-  { id: 'flutterwave', name: 'Flutterwave', mark: 'F', style: 'flutterwave' },
-  { id: 'visa', name: 'Visa', mark: 'VISA', style: 'visa' },
-  { id: 'mastercard', name: 'Mastercard', mark: 'MC', style: 'mastercard' },
-  { id: 'opay', name: 'OPay', mark: 'O', style: 'opay' },
-  { id: 'gtbank', name: 'GTBank', mark: 'GT', style: 'gtbank' },
-  { id: 'access', name: 'Access Bank', mark: 'A', style: 'access' },
-  { id: 'zenith', name: 'Zenith Bank', mark: 'Z', style: 'zenith' },
-  { id: 'uba', name: 'UBA', mark: 'UBA', style: 'uba' },
-]
-
-function DemoPaymentPanel({ orderId, amount, t, formatPrice }) {
-  const [selectedMethod, setSelectedMethod] = useState('paystack')
+function FawrySandboxPanel({ orderId, amount, t }) {
   const [payment, setPayment] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
+  const amountEgp = Number(amount).toFixed(2)
 
-  async function simulatePayment() {
+  async function createSandboxPayment() {
     setProcessing(true)
-    setPayment(null)
     setError('')
     try {
-      const result = await createMockPayment({ orderId, method: selectedMethod })
-      setPayment(result)
+      if (!supabase) throw new Error(t('payment.fawryUnavailable'))
+      const { data, error: paymentError } = await supabase.functions.invoke('create-fawry-payment', { body: { orderId } })
+      if (paymentError) throw paymentError
+      if (!data || typeof data.referenceNumber !== 'string' || !data.referenceNumber) {
+        throw new Error(t('payment.fawryFailed'))
+      }
+      setPayment(data)
     } catch (paymentError) {
-      console.error('FENGS demo payment simulation failed.', paymentError)
-      setError(t('payment.demoFailed'))
+      console.error('Fawry sandbox payment request failed.', paymentError)
+      setError(paymentError.message || t('payment.fawryFailed'))
     } finally {
       setProcessing(false)
     }
   }
 
   return (
-    <section className="demo-payment" aria-labelledby="demo-payment-title">
-      <div className="demo-payment-heading">
-        <span className="demo-payment-eyebrow">{t('payment.demoEyebrow')}</span>
-        <h4 id="demo-payment-title">{t('payment.demoTitle')}</h4>
-        <p>{t('payment.demoDescription')}</p>
+    <section className="fawry-payment" aria-labelledby="fawry-payment-title">
+      <div className="fawry-payment-heading">
+        <span className="fawry-payment-eyebrow">{t('payment.fawryEyebrow')}</span>
+        <h4 id="fawry-payment-title"><span className="fawry-logo" aria-hidden="true">F</span>{t('payment.fawryTitle')}</h4>
+        <p>{t('payment.fawryDescription')}</p>
       </div>
-      <div className="demo-payment-methods" aria-label={t('payment.demoTitle')}>
-        {demoPaymentMethods.map((method) => (
-          <button
-            className={`demo-payment-method ${selectedMethod === method.id ? 'is-selected' : ''}`}
-            type="button"
-            key={method.id}
-            aria-pressed={selectedMethod === method.id}
-            onClick={() => { setSelectedMethod(method.id); setPayment(null) }}
-          >
-            <span className={`demo-payment-logo ${method.style}`} aria-hidden="true">{method.mark}</span>
-            <span>{method.name}</span>
-          </button>
-        ))}
-      </div>
-      <div className="demo-payment-total"><span>{t('payment.demoAmount')}</span><strong>{formatPrice(amount)}</strong></div>
-      <button className="button-primary demo-payment-submit" type="button" disabled={processing} onClick={simulatePayment}>
-        {processing ? t('payment.demoProcessing') : t('payment.demoSubmit', { provider: demoPaymentMethods.find((method) => method.id === selectedMethod)?.name || 'Paystack' })}
+      <div className="fawry-payment-total"><span>{t('payment.fawryAmount')}</span><strong>{amountEgp} EGP</strong></div>
+      <button className="button-primary fawry-payment-submit" type="button" disabled={processing || Boolean(payment)} onClick={createSandboxPayment}>
+        {processing ? t('payment.fawryProcessing') : payment ? t('payment.fawryCreated') : t('payment.fawrySubmit')}
       </button>
-      {payment && <p className="demo-payment-result" role="status"><strong>{t('payment.demoSuccess')}</strong><span>{payment.provider} · {t('payment.demoReference')}: {payment.reference}</span></p>}
+      {payment && <p className="fawry-payment-result" role="status"><strong>{t('payment.fawryCreated')}</strong><span>{t('payment.fawryReference')}: {payment.referenceNumber}</span><span>{t('payment.fawryStatus')}: {payment.paymentStatus}</span></p>}
       {error && <p className="form-error" role="alert">{error}</p>}
-      <p className="demo-payment-disclaimer">{t('payment.demoNotice')}</p>
+      <p className="fawry-payment-disclaimer">{t('payment.fawryNotice')}</p>
     </section>
   )
 }
@@ -419,9 +379,6 @@ function CheckoutForm({ user, guest = false, initialCountry, t, onSubmit, submit
 
 function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, orderNotice, orderError, onClose, onChangeQuantity, onSubmitOrder, onLogin, onRetryNotification }) {
   const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [accountNumberCopied, setAccountNumberCopied] = useState(false)
-  const [copyError, setCopyError] = useState('')
-  const [paymentReference, setPaymentReference] = useState('')
   const [retryingNotification, setRetryingNotification] = useState(false)
   const [notificationRetryError, setNotificationRetryError] = useState('')
   const cartItems = Object.entries(cart).flatMap(([key, quantity]) => {
@@ -432,7 +389,6 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
   const cartItemCount = cartItems.reduce((count, item) => count + item.quantity, 0)
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
   const orderEmailHref = orderNotice ? buildOrderEmailHref(orderNotice, t, formatPrice) : ''
-  const paymentEmailHref = orderNotice ? buildPaymentEmailHref(orderNotice, paymentReference, t) : ''
 
   async function retryOrderNotification() {
     setRetryingNotification(true)
@@ -463,31 +419,14 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
               <h3>{t('slip.title')}</h3>
               <div className="slip-meta"><span>{t('slip.reference')}</span><strong>{orderNotice.id}</strong></div>
               <div className="slip-meta"><span>{t('slip.destination')}</span><strong>{deliveryCountries.find((country) => country.code === orderNotice.countryCode)?.flag} {deliveryCountries.find((country) => country.code === orderNotice.countryCode)?.name}</strong></div>
-              <section className="opay-payment">
-                <h4><span className="payment-brand-mark" aria-label="OPay">O</span>{t('slip.opayTitle')}</h4>
-                <div className="slip-meta"><span>{t('slip.opayRecipient')}</span><strong>{opayAccountName}</strong></div>
-                <div className="slip-meta"><span>{t('slip.opayNumber')}</span><strong>{opayAccountNumber}</strong></div>
-                <button className="copy-account-number" type="button" onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(opayAccountNumber)
-                    setAccountNumberCopied(true)
-                    setCopyError('')
-                    window.setTimeout(() => setAccountNumberCopied(false), 1800)
-                  } catch (error) {
-                    console.error('Could not copy the OPay account number.', error)
-                    setCopyError(t('slip.copyFailed'))
-                  }
-                }}>{accountNumberCopied ? t('slip.numberCopied') : t('slip.copyNumber')}</button>
-                {copyError && <p className="form-error" role="alert">{copyError}</p>}
-                <a className="button-primary opay-link" href={opayWebsite} target="_blank" rel="noopener noreferrer">{t('slip.openOpay')} <Icon name="arrow" size={16} /></a>
-                <p>{t('slip.opayAmountNote')}</p>
-              </section>
               <div className="slip-items">
                 <strong>{t('slip.items')}</strong>
                 {orderNotice.items.map((item) => <div className="slip-item" key={`${item.product_id}:${item.variant}`}><span>{item.name} · {item.variant} × {item.quantity}</span><b>{formatPrice(item.unit_price_rub * item.quantity)}</b></div>)}
               </div>
               <div className="slip-total"><span>{t('slip.subtotal')}</span><strong>{formatPrice(orderNotice.subtotal)}</strong></div>
-              <DemoPaymentPanel orderId={orderNotice.id} amount={orderNotice.subtotal} t={t} formatPrice={formatPrice} />
+              {orderNotice.notificationId
+                ? <FawrySandboxPanel orderId={orderNotice.notificationId} amount={orderNotice.subtotal} t={t} />
+                : <p className="setup-notice">{t('payment.fawryUnavailable')}</p>}
               <p className="slip-status">{t(orderNotice.guest ? 'slip.emailDraftStatus' : 'slip.status')}</p>
               {orderNotice.notificationFailed && (
                 <div className="order-notification-warning" role="alert">
@@ -502,8 +441,6 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
                 <h4><span className="email-brand-mark" aria-hidden="true">✉</span>{t('slip.emailTitle')}</h4>
                 <p>{t(orderNotice.guest ? 'slip.emailGuestNote' : 'slip.emailNote')}</p>
                 <a className="button-primary email-session-button" href={orderEmailHref}>{t('slip.emailOrder')} <Icon name="arrow" size={16} /></a>
-                <label>{t('slip.paymentReference')}<input maxLength={120} value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder={t('slip.paymentReferencePlaceholder')} /></label>
-                <a className="email-payment-link" href={paymentEmailHref}>{t('slip.emailPaymentNotice')}</a>
               </section>
               <button className="button-primary order-slip-print" type="button" onClick={() => window.print()}>{t('slip.print')}</button>
               <button className="order-slip-continue" type="button" onClick={onClose}>{t('slip.continue')}</button>

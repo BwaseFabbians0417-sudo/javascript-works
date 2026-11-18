@@ -22,9 +22,23 @@ create table if not exists public.storefront_order_email_notifications (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.storefront_fawry_payments (
+  order_id uuid primary key references public.storefront_orders(id) on delete cascade,
+  merchant_ref_num text not null unique,
+  fawry_ref_number text,
+  amount_egp numeric(12, 2) not null check (amount_egp > 0),
+  status text not null check (status in ('processing', 'created', 'failed')),
+  gateway_status text not null default '',
+  updated_at timestamptz not null default now()
+);
+
 alter table public.storefront_order_email_notifications enable row level security;
 revoke all on public.storefront_order_email_notifications from anon, authenticated, public;
 grant all on public.storefront_order_email_notifications to service_role;
+
+alter table public.storefront_fawry_payments enable row level security;
+revoke all on public.storefront_fawry_payments from anon, authenticated, public;
+grant all on public.storefront_fawry_payments to service_role;
 
 create table if not exists public.storefront_admins (
   user_id uuid primary key references auth.users (id) on delete cascade,

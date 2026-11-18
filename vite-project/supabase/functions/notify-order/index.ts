@@ -55,11 +55,11 @@ Deno.serve(async (request) => {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
-  const notificationEmail = Deno.env.get('ORDER_NOTIFICATION_EMAIL')
+  const notificationEmail = Deno.env.get('ORDER_NOTIFICATION_EMAIL') || 'olorunniyioluwapelumi0417@gmail.com'
   const fromEmail = Deno.env.get('ORDER_FROM_EMAIL')
   const storeAppUrl = Deno.env.get('STORE_APP_URL')
 
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !notificationEmail || !fromEmail || !storeAppUrl) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !fromEmail || !storeAppUrl) {
     console.error('Order notification is missing one or more server-side secrets.')
     return respond({ error: 'Order email is not configured.' }, 503)
   }

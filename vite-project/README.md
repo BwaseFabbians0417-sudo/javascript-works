@@ -38,10 +38,10 @@ Online checkout requires a customer account so each submitted order is saved in 
 4. Configure Edge Function secrets (never add these to `.env.local`, Vercel `VITE_` variables, or browser code):
 
    ```sh
-   supabase secrets set RESEND_API_KEY=re_your_server_key ORDER_NOTIFICATION_EMAIL=your-inbox@example.com ORDER_FROM_EMAIL="FENGS Orders <orders@your-verified-domain.com>" STORE_APP_URL=https://your-store.vercel.app/
+   supabase secrets set RESEND_API_KEY=re_your_server_key ORDER_FROM_EMAIL="FENGS Orders <orders@your-verified-domain.com>" STORE_APP_URL=https://your-store.vercel.app/
    ```
 
-The function verifies the signed-in customer owns the order, then emails the store inbox with the order and delivery details plus a link to the admin sign-in screen. Set `STORE_APP_URL` to your deployed HTTPS storefront URL. The link opens the account dialog; the owner must sign in before viewing or accepting requests, and it cannot approve an order by itself. The server-only service-role key is used only by the Edge Function to prevent duplicate notification sends; it is never exposed to the storefront. If the email service is temporarily unavailable, the order remains saved and checkout offers a retry. The local demo and guest email drafts do not send automatic notifications.
+The function verifies the signed-in customer owns the order, then emails `olorunniyioluwapelumi0417@gmail.com` by default with the order and delivery details plus a link to the admin sign-in screen. Set `STORE_APP_URL` to your deployed HTTPS storefront URL. You can override the recipient by setting the optional `ORDER_NOTIFICATION_EMAIL` Edge Function secret. The link opens the account dialog; the owner must sign in before viewing or accepting requests, and it cannot approve an order by itself. The server-only service-role key is used only by the Edge Function to prevent duplicate notification sends; it is never exposed to the storefront. If the email service is temporarily unavailable, the order remains saved and checkout offers a retry. The local demo and guest email drafts do not send automatic notifications.
 
 Customers can edit the cart before submitting: use **− / +** to change quantity or **Remove** to remove a product variant. Cancellation keeps a record with status **Cancelled** rather than deleting the order history. If the Supabase tables were created before customer cancellations were added, rerun `supabase-setup.sql` to add the cancellation policy.
 
@@ -65,7 +65,19 @@ Product details include category-specific care and lifespan guidance. Food guida
 
 ## Payment and account security
 
-Online card payments and OPay merchant checkout are not configured. The order slip offers Paystack- and Flutterwave-style provider choices through a local fake API, clearly labeled as a demo: it does not contact a payment provider, collect card/bank details, charge money, or mark orders paid. After an order request, the printable slip shows the store-provided OPay recipient name and account number, plus a link to OPay's official website for customers to make a manual transfer themselves. This link does not prefill a payment or verify a transfer. The slip can prepare a plain-text email for an order request or a customer-reported transfer reference; in local demo mode the customer's email app sends nothing until they press **Send**. A transfer report is not proof of settlement. Confirm stock, delivery, and the final amount before asking a customer to transfer, and verify any transfer directly in the receiving account. Never place OPay or email API secrets in frontend code or `VITE_` variables. Automated shipping labels/tracking are also not configured. Do not collect card numbers or passwords in order notes or email.
+The checkout uses the Fawry **sandbox** to request a test payment reference for signed-in customers with saved Supabase orders. It does not collect card details, accept real payments, or mark an order as paid. OPay and the previous local payment mock are removed. Automated shipping labels/tracking are not configured. Do not collect card numbers or passwords in order notes or email.
+
+To configure Fawry sandbox payments:
+
+1. Rerun [`supabase-setup.sql`](./supabase-setup.sql) in the Supabase SQL Editor to create the private Fawry payment-reference table.
+2. Deploy the Edge Function with JWT verification enabled: `supabase functions deploy create-fawry-payment`. Do not use `--no-verify-jwt`.
+3. Set the Fawry merchant credentials as Edge Function secrets, never in `.env.local`, Vercel variables, or browser code:
+
+   ```sh
+   supabase secrets set FAWRY_MERCHANT_CODE=your_sandbox_merchant_code FAWRY_SECURE_KEY=your_sandbox_secure_key
+   ```
+
+The function calls the Fawry staging endpoint and uses `PAYATFAWRY`. For sandbox testing only, it sends the numeric RUB order subtotal as the same numeric EGP amount without exchange-rate conversion. This is not a valid live price or currency conversion. The function records the returned reference but does not confirm settlement, process callbacks, or support live charges. Do not switch to production or use real customer payments without implementing and verifying the production payment flow.
 
 ## Store contact
 
