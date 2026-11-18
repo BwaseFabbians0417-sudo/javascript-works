@@ -16,6 +16,16 @@ create table if not exists public.storefront_orders (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.storefront_order_email_notifications (
+  order_id uuid primary key references public.storefront_orders(id) on delete cascade,
+  status text not null check (status in ('sending', 'sent', 'failed')),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.storefront_order_email_notifications enable row level security;
+revoke all on public.storefront_order_email_notifications from anon, authenticated, public;
+grant all on public.storefront_order_email_notifications to service_role;
+
 create table if not exists public.storefront_admins (
   user_id uuid primary key references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()

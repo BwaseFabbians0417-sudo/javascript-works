@@ -26,11 +26,26 @@ For production, connect Supabase Auth and use the SQL setup below. Supabase orde
 5. Run [`supabase-setup.sql`](./supabase-setup.sql) in the Supabase SQL Editor **after the store-owner account exists**. It creates the orders and admin tables, enables row-level security, and grants the matching store email access to the order-management view. If the owner account uses another email, update the email in the final SQL statement before running it.
 6. In Vercel, add the same two public Supabase environment variables and redeploy.
 
-When Supabase is configured, customers can sign up, sign in, reset/update a password, update their name and phone, submit delivery requests, cancel their own requests while the status is still **Requested**, and view their order history. The store-owner account gets an order-management view and can update request statuses. To accept an order, sign in with the owner account, open **Orders** (truck icon), refresh the list if needed, then change that order's status from **Requested** to **Confirmed**. In local demo mode, customers can create accounts, sign in, update their profile, submit local order requests, cancel requests that are still Requested, and view their local order history, but cannot reset a forgotten password.
+When Supabase is configured, customers can sign up, sign in, reset/update a password, update their name and phone, submit delivery requests, cancel their own requests while the status is still **Requested**, and view their order history. The store-owner account gets an order-management view and can update request statuses. To accept an order, sign in with the owner account, open **Admin** (or **Orders**), refresh the list if needed, then change that order's status from **Requested** to **Confirmed**. In local demo mode, customers can create accounts, sign in, update their profile, submit local order requests, cancel requests that are still Requested, and view their local order history, but cannot reset a forgotten password or automatically notify the store by email.
+
+### Automatic order email notifications
+
+Online checkout requires a customer account so each submitted order is saved in Supabase before the store is notified. To email the configured store inbox, deploy the `notify-order` Supabase Edge Function and connect a Resend account:
+
+1. Rerun [`supabase-setup.sql`](./supabase-setup.sql) in the Supabase SQL Editor to create the private order-email notification table.
+2. Verify a sender domain/address with Resend.
+3. Link the Supabase CLI to this project and deploy the function: `supabase functions deploy notify-order`. Keep JWT verification enabled; do not use `--no-verify-jwt`.
+4. Configure Edge Function secrets (never add these to `.env.local`, Vercel `VITE_` variables, or browser code):
+
+   ```sh
+   supabase secrets set RESEND_API_KEY=re_your_server_key ORDER_NOTIFICATION_EMAIL=your-inbox@example.com ORDER_FROM_EMAIL="FENGS Orders <orders@your-verified-domain.com>"
+   ```
+
+The function verifies the signed-in customer owns the order, then emails the store inbox with the order and delivery details. The server-only service-role key is used only by the Edge Function to prevent duplicate notification sends; it is never exposed to the storefront. If the email service is temporarily unavailable, the order remains saved and checkout offers a retry. The local demo and guest email drafts do not send automatic notifications.
 
 Customers can edit the cart before submitting: use **− / +** to change quantity or **Remove** to remove a product variant. Cancellation keeps a record with status **Cancelled** rather than deleting the order history. If the Supabase tables were created before customer cancellations were added, rerun `supabase-setup.sql` to add the cancellation policy.
 
-Customers may also check out as guests. Guest checkout prepares a detailed order-request email in the customer's email app, including the delivery details and order reference. The customer must press **Send**; the storefront does not receive or store the guest request, and the temporary reference is only kept in the current page. For a saved order history or cross-device tracking, the customer must use an account.
+When Supabase is not configured, customers may check out as guests. Guest checkout prepares a detailed order-request email in the customer's email app, including delivery details and the order reference. The customer must press **Send**; the storefront does not receive or store the guest request, and the temporary reference is only kept in the current page. With Supabase configured, customers must sign in so the order can be saved and emailed to the store. For saved order history, automatic store notifications, or cross-device tracking, customers must use an account.
 
 ## Catalog and delivery
 
@@ -50,7 +65,7 @@ Product details include category-specific care and lifespan guidance. Food guida
 
 ## Payment and account security
 
-Online card payments and OPay merchant checkout are not configured. After an order request, the printable request slip shows the store-provided OPay recipient name and account number, plus a link to OPay's official website for customers to make a manual transfer themselves. This link does not prefill a payment, verify a transfer, or mean an order is paid. The slip can prepare a plain-text email for the order request or a customer-reported transfer reference; the customer's email app sends nothing until the customer presses **Send**. These are not automatic email notifications, and a transfer report is not proof of settlement. Confirm stock, delivery, and the final amount before asking a customer to transfer, and verify any transfer directly in the receiving account. Never place OPay API secrets in frontend code or `VITE_` variables. Automated shipping labels/tracking are also not configured. Do not collect card numbers or passwords in order notes or email.
+Online card payments and OPay merchant checkout are not configured. The bank/card options on the order slip are a clearly labeled simulation only; they do not contact banks, charge money, or mark orders paid. After an order request, the printable request slip shows the store-provided OPay recipient name and account number, plus a link to OPay's official website for customers to make a manual transfer themselves. This link does not prefill a payment or verify a transfer. The slip can prepare a plain-text email for an order request or a customer-reported transfer reference; in local demo mode the customer's email app sends nothing until they press **Send**. A transfer report is not proof of settlement. Confirm stock, delivery, and the final amount before asking a customer to transfer, and verify any transfer directly in the receiving account. Never place OPay or email API secrets in frontend code or `VITE_` variables. Automated shipping labels/tracking are also not configured. Do not collect card numbers or passwords in order notes or email.
 
 ## Store contact
 

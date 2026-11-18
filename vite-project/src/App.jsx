@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import supabase, { supabaseEnabled } from './lib/supabase.js'
 import { cancelLocalOrder, createLocalOrder, getLocalOrders, getLocalSession, registerLocalAccount, signInLocalAccount, signOutLocalAccount, updateLocalProfile } from './lib/localAccounts.js'
+import { createMockPayment } from './lib/mockPaymentApi.js'
 import { countries as deliveryCountries, formatRegionalPrice, getInitialLocalePreferences, languages, translate } from './lib/storefrontLocale.js'
 
 const supportEmail = 'OLORUNNIYIOLUWAPELUMI0417@GMAIL.COM'
@@ -303,6 +304,83 @@ function buildPaymentEmailHref(order, paymentReference, t) {
   return `mailto:${supportEmail}?subject=${encodeURIComponent(t('slip.emailPaymentSubject', { id: order.id }))}&body=${encodeURIComponent(body)}`
 }
 
+function buildAdminReplyHref(order, t, formatPrice) {
+  const body = [
+    t('auth.replyIntro', { id: order.id.slice(0, 8).toUpperCase() }),
+    '',
+    `${t('slip.items')}:`,
+    ...order.items.map((item) => `- ${item.name} · ${item.variant} × ${item.quantity}`),
+    `${t('slip.subtotal')}: ${formatPrice(Number(order.subtotal))}`,
+    `${t('auth.status')}: ${order.status}`,
+  ].join('\n')
+  const subject = t('auth.replySubject', { id: order.id.slice(0, 8).toUpperCase() })
+  const recipient = encodeURIComponent(order.customer_email.trim()).replace('%40', '@')
+  return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+const demoPaymentMethods = [
+  { id: 'visa', name: 'Visa', mark: 'VISA', style: 'visa' },
+  { id: 'mastercard', name: 'Mastercard', mark: 'MC', style: 'mastercard' },
+  { id: 'opay', name: 'OPay', mark: 'O', style: 'opay' },
+  { id: 'gtbank', name: 'GTBank', mark: 'GT', style: 'gtbank' },
+  { id: 'access', name: 'Access Bank', mark: 'A', style: 'access' },
+  { id: 'zenith', name: 'Zenith Bank', mark: 'Z', style: 'zenith' },
+  { id: 'uba', name: 'UBA', mark: 'UBA', style: 'uba' },
+]
+
+function DemoPaymentPanel({ orderId, amount, t, formatPrice }) {
+  const [selectedMethod, setSelectedMethod] = useState(demoPaymentMethods[0].id)
+  const [payment, setPayment] = useState(null)
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState('')
+
+  async function simulatePayment() {
+    setProcessing(true)
+    setPayment(null)
+    setError('')
+    try {
+      const result = await createMockPayment({ orderId, method: selectedMethod })
+      setPayment(result)
+    } catch (paymentError) {
+      console.error('FENGS demo payment simulation failed.', paymentError)
+      setError(t('payment.demoFailed'))
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  return (
+    <section className="demo-payment" aria-labelledby="demo-payment-title">
+      <div className="demo-payment-heading">
+        <span className="demo-payment-eyebrow">{t('payment.demoEyebrow')}</span>
+        <h4 id="demo-payment-title">{t('payment.demoTitle')}</h4>
+        <p>{t('payment.demoDescription')}</p>
+      </div>
+      <div className="demo-payment-methods" aria-label={t('payment.demoTitle')}>
+        {demoPaymentMethods.map((method) => (
+          <button
+            className={`demo-payment-method ${selectedMethod === method.id ? 'is-selected' : ''}`}
+            type="button"
+            key={method.id}
+            aria-pressed={selectedMethod === method.id}
+            onClick={() => { setSelectedMethod(method.id); setPayment(null) }}
+          >
+            <span className={`demo-payment-logo ${method.style}`} aria-hidden="true">{method.mark}</span>
+            <span>{method.name}</span>
+          </button>
+        ))}
+      </div>
+      <div className="demo-payment-total"><span>{t('payment.demoAmount')}</span><strong>{formatPrice(amount)}</strong></div>
+      <button className="button-primary demo-payment-submit" type="button" disabled={processing} onClick={simulatePayment}>
+        {processing ? t('payment.demoProcessing') : t('payment.demoSubmit')}
+      </button>
+      {payment && <p className="demo-payment-result" role="status"><strong>{t('payment.demoSuccess')}</strong><span>{t('payment.demoReference')}: {payment.reference}</span></p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <p className="demo-payment-disclaimer">{t('payment.demoNotice')}</p>
+    </section>
+  )
+}
+
 function CheckoutForm({ user, guest = false, initialCountry, t, onSubmit, submitting }) {
   const [customerName, setCustomerName] = useState(user?.user_metadata?.full_name || '')
   const [customerEmail, setCustomerEmail] = useState(user?.email || '')
@@ -337,10 +415,12 @@ function CheckoutForm({ user, guest = false, initialCountry, t, onSubmit, submit
   )
 }
 
-function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, orderNotice, orderError, onClose, onChangeQuantity, onSubmitOrder, onLogin }) {
+function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, orderNotice, orderError, onClose, onChangeQuantity, onSubmitOrder, onLogin, onRetryNotification }) {
   const [accountNumberCopied, setAccountNumberCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const [paymentReference, setPaymentReference] = useState('')
+  const [retryingNotification, setRetryingNotification] = useState(false)
+  const [notificationRetryError, setNotificationRetryError] = useState('')
   const cartItems = Object.entries(cart).flatMap(([key, quantity]) => {
     const [id, variant] = key.split(':')
     const product = products.find((item) => item.id === Number(id))
@@ -350,6 +430,19 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
   const orderEmailHref = orderNotice ? buildOrderEmailHref(orderNotice, t, formatPrice) : ''
   const paymentEmailHref = orderNotice ? buildPaymentEmailHref(orderNotice, paymentReference, t) : ''
 
+  async function retryOrderNotification() {
+    setRetryingNotification(true)
+    setNotificationRetryError('')
+    try {
+      await onRetryNotification(orderNotice.notificationId)
+    } catch (error) {
+      console.error('FENGS order email retry failed.', error)
+      setNotificationRetryError(t('order.notificationRetryFailed'))
+    } finally {
+      setRetryingNotification(false)
+    }
+  }
+
   return (
     <div className="overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <aside className="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-title">
@@ -357,7 +450,7 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
           <div><span className="eyebrow">{t('cart.selection')}</span><h2 id="cart-title">{t('cart.title')}</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close cart"><Icon name="close" /></button>
         </div>
-        {orderNotice && <div className="order-success" role="status"><strong>{t(orderNotice.guest ? 'order.guestPrepared' : 'order.success')}</strong><span>{t('order.reference', { id: orderNotice.id })}</span><p>{t(orderNotice.guest ? 'slip.emailGuestNote' : 'order.followup')}</p></div>}
+        {orderNotice && <div className="order-success" role="status"><strong>{t(orderNotice.guest ? 'order.guestPrepared' : orderNotice.localOnly ? 'order.localSaved' : 'order.success')}</strong><span>{t('order.reference', { id: orderNotice.id })}</span><p>{t(orderNotice.notificationSent ? 'order.notificationSent' : orderNotice.guest ? 'slip.emailGuestNote' : 'order.followup')}</p></div>}
         {cartItems.length === 0 ? (
           orderNotice ? (
             <section className="order-slip" aria-label={t('slip.eyebrow')}>
@@ -390,7 +483,16 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
                 {orderNotice.items.map((item) => <div className="slip-item" key={`${item.product_id}:${item.variant}`}><span>{item.name} · {item.variant} × {item.quantity}</span><b>{formatPrice(item.unit_price_rub * item.quantity)}</b></div>)}
               </div>
               <div className="slip-total"><span>{t('slip.subtotal')}</span><strong>{formatPrice(orderNotice.subtotal)}</strong></div>
+              <DemoPaymentPanel orderId={orderNotice.id} amount={orderNotice.subtotal} t={t} formatPrice={formatPrice} />
               <p className="slip-status">{t(orderNotice.guest ? 'slip.emailDraftStatus' : 'slip.status')}</p>
+              {orderNotice.notificationFailed && (
+                <div className="order-notification-warning" role="alert">
+                  <p>{t('order.notificationFailed')}</p>
+                  {orderNotice.notificationId && <button type="button" disabled={retryingNotification} onClick={retryOrderNotification}>{retryingNotification ? t('order.notificationRetrying') : t('order.retryNotification')}</button>}
+                  {notificationRetryError && <p>{notificationRetryError}</p>}
+                </div>
+              )}
+              {orderNotice.localOnly && <p className="order-notification-warning">{t('order.notificationUnavailable')}</p>}
               <p className="payment-pending-note">{t('slip.paymentPending')}</p>
               <section className="email-session">
                 <h4><span className="email-brand-mark" aria-hidden="true">✉</span>{t('slip.emailTitle')}</h4>
@@ -417,7 +519,9 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
             <div className="cart-summary"><div><span>{t('cart.subtotal')}</span><strong>{formatPrice(subtotal)}</strong></div><p>{t('cart.deliveryNote')}</p></div>
             {user
               ? <><CheckoutForm user={user} initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}</>
-              : <><div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.guestPrompt')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div><CheckoutForm user={null} guest initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}{!supabaseEnabled && <p className="setup-notice">{t('auth.localMode')}</p>}</>}
+              : supabaseEnabled
+                ? <div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.accountRequired')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div>
+                : <><div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.guestPrompt')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div><CheckoutForm user={null} guest initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}<p className="setup-notice">{t('auth.localMode')}</p></>}
           </>
         )}
       </aside>
@@ -588,7 +692,7 @@ function AccountDialog({ user, recoveryMode, isStoreAdmin, localMode, orders, or
               {isStoreAdmin && <p className="admin-accept-hint">{t('auth.acceptHint')}</p>}
               {ordersLoading ? <p>{t('auth.loadingOrders')}</p> : ordersError ? <p className="form-error">{ordersError}</p> : orders.length === 0 ? <p>{isStoreAdmin ? t('auth.noCustomerOrders') : t('auth.noOrders')}</p> : !isStoreAdmin && <div className="order-list">{orders.map((order) => <article className="order-history-item" key={order.id}><div><strong>{t('auth.request', { id: order.id.slice(0, 8).toUpperCase() })}</strong><span>{new Date(order.created_at).toLocaleDateString(dateLocale)}</span></div><span className={`order-status ${order.status === 'Delivered' ? 'order-status-delivered' : ''}`}>{order.status === 'Delivered' && <span className="delivery-check" aria-label="Delivery confirmed">✓</span>}{order.status}</span><p>{order.items.length === 1 ? t('auth.item') : t('auth.items', { count: order.items.length })} · {deliveryCountries.find((country) => country.code === order.country_code)?.flag} {order.city}, {deliveryCountries.find((country) => country.code === order.country_code)?.name}</p><strong>{formatPrice(Number(order.subtotal))}</strong>{order.status === 'Requested' && <button className="cancel-order-button" type="button" disabled={updatingOrderId === order.id} onClick={() => updateOrderStatus(order.id, 'Cancelled')}>{updatingOrderId === order.id ? t('auth.cancellingOrder') : t('auth.cancelOrder')}</button>}</article>)}</div>}
               {orderActionError && <p className="form-error" role="alert">{orderActionError}</p>}
-              {isStoreAdmin && orders.length > 0 && <div className="admin-orders-list">{orders.map((order) => <article className="admin-order-item" key={order.id}><div className="admin-order-title"><strong>#{order.id.slice(0, 8).toUpperCase()} · {order.customer_name}</strong><span>{new Date(order.created_at).toLocaleString(dateLocale)}</span></div><p>{order.customer_email} · {order.customer_phone}</p><p>{order.street_address}, {order.city}{order.region ? `, ${order.region}` : ''}{order.postal_code ? ` ${order.postal_code}` : ''} · {deliveryCountries.find((country) => country.code === order.country_code)?.flag} {deliveryCountries.find((country) => country.code === order.country_code)?.name}</p><p>{order.items.map((item) => `${item.name} (${item.variant}) × ${item.quantity}`).join(' · ')}</p><div className="admin-order-footer"><strong>{formatPrice(Number(order.subtotal))}</strong><label>{t('auth.status')}<select value={order.status} disabled={updatingOrderId === order.id} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>{orderStatuses.map((status) => <option key={status}>{status}</option>)}</select></label></div></article>)}</div>}
+              {isStoreAdmin && orders.length > 0 && <div className="admin-orders-list">{orders.map((order) => <article className="admin-order-item" key={order.id}><div className="admin-order-title"><strong>#{order.id.slice(0, 8).toUpperCase()} · {order.customer_name}</strong><span>{order.status}</span><span>{new Date(order.created_at).toLocaleString(dateLocale)}</span></div><p>{order.customer_email} · {order.customer_phone}</p><p>{order.street_address}, {order.city}{order.region ? `, ${order.region}` : ''}{order.postal_code ? ` ${order.postal_code}` : ''} · {deliveryCountries.find((country) => country.code === order.country_code)?.flag} {deliveryCountries.find((country) => country.code === order.country_code)?.name}</p><p>{order.items.map((item) => `${item.name} (${item.variant}) × ${item.quantity}`).join(' · ')}</p><div className="admin-order-footer"><strong>{formatPrice(Number(order.subtotal))}</strong><label>{t('auth.status')}<select value={order.status} disabled={updatingOrderId === order.id} onChange={(event) => updateOrderStatus(order.id, event.target.value)}>{orderStatuses.map((status) => <option key={status}>{status}</option>)}</select></label></div>{order.status === 'Requested' && <button className="admin-accept-button" type="button" disabled={updatingOrderId === order.id} onClick={() => updateOrderStatus(order.id, 'Confirmed')}>{updatingOrderId === order.id ? t('auth.acceptingOrder') : t('auth.acceptOrder')}</button>}<a className="admin-reply-link" href={buildAdminReplyHref(order, t, formatPrice)}>{t('auth.reply')}</a></article>)}</div>}
             </div>
             <button className="signout-button" type="button" onClick={onSignOut}>{t('auth.signout')}</button>
           </>
@@ -849,7 +953,8 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem('fengs-cart-v1', JSON.stringify(cart))
+      if (Object.keys(cart).length === 0) window.localStorage.removeItem('fengs-cart-v1')
+      else window.localStorage.setItem('fengs-cart-v1', JSON.stringify(cart))
     } catch (error) {
       console.error('Could not save your FENGS cart.', error)
     }
@@ -878,6 +983,20 @@ function App() {
       else delete nextCart[key]
       return nextCart
     })
+  }
+
+  function clearCartAfterLogout() {
+    setCart({})
+    setCartOpen(false)
+    setOrderNotice('')
+    setOrderError('')
+    try {
+      window.localStorage.removeItem('fengs-cart-v1')
+    } catch (error) {
+      console.error('Could not clear the saved FENGS cart after sign-out.', error)
+      setToast(t('cart.clearError'))
+      window.setTimeout(() => setToast(''), 3000)
+    }
   }
 
   function toggleFavorite(id) {
@@ -991,6 +1110,10 @@ function App() {
     const subtotal = items.reduce((sum, item) => sum + item.unit_price_rub * item.quantity, 0)
     setOrderSubmitting(true)
     try {
+      if (!authUser && supabase) {
+        setOrderError(t('order.signinError'))
+        return
+      }
       if (!authUser) {
         const notice = {
           id: window.crypto.randomUUID().slice(0, 8).toUpperCase(),
@@ -1032,6 +1155,7 @@ function App() {
           id: data.id.slice(0, 8).toUpperCase(),
           items,
           subtotal,
+          localOnly: true,
           countryCode: address.countryCode,
           customerName: address.customerName.trim(),
           customerEmail: address.customerEmail.trim(),
@@ -1065,8 +1189,18 @@ function App() {
         .single()
       if (error) throw error
       setOrders((currentOrders) => [data, ...currentOrders].slice(0, 25))
+      let notificationSent = false
+      try {
+        await sendOrderNotification(data.id)
+        notificationSent = true
+      } catch (notificationError) {
+        console.error('FENGS order was saved but its email notification failed.', notificationError)
+      }
       setOrderNotice({
         id: data.id.slice(0, 8).toUpperCase(),
+        notificationId: data.id,
+        notificationSent,
+        notificationFailed: !notificationSent,
         items,
         subtotal,
         countryCode: address.countryCode,
@@ -1092,6 +1226,7 @@ function App() {
     if (!supabase) {
       try {
         signOutLocalAccount()
+        clearCartAfterLogout()
         setAuthUser(null)
         setOrders([])
         setOrdersUserId(null)
@@ -1110,10 +1245,24 @@ function App() {
       return
     }
     setAccountOpen(false)
+    clearCartAfterLogout()
   }
 
   function reloadOrders() {
     if (authUser) setOrdersRefresh((value) => value + 1)
+  }
+
+  async function sendOrderNotification(orderId) {
+    if (!supabase) throw new Error('Automatic order email requires the configured Supabase project.')
+    const { error } = await supabase.functions.invoke('notify-order', { body: { orderId } })
+    if (error) throw error
+  }
+
+  async function retryOrderNotification(orderId) {
+    await sendOrderNotification(orderId)
+    setOrderNotice((currentNotice) => currentNotice?.notificationId === orderId
+      ? { ...currentNotice, notificationFailed: false, notificationSent: true }
+      : currentNotice)
   }
 
   async function updateOrderStatus(orderId, status) {
@@ -1177,6 +1326,7 @@ function App() {
         </form>
         <div className="header-actions">
           <button className="header-action" type="button" onClick={() => setAccountOpen(true)}><Icon name="truck" /><span>{t('nav.orders')}</span></button>
+          {isStoreAdmin && <button className="header-action admin-header-link" type="button" onClick={() => setAccountOpen(true)}><Icon name="shield" /><span>{t('nav.admin')}</span></button>}
           <button className={`header-action ${savedOnly ? 'active-action' : ''}`} type="button" onClick={() => { setSavedOnly((value) => !value); setActiveCategory('All Products') }}><span className="icon-wrap"><Icon name="heart" fill={savedOnly ? 'currentColor' : 'none'} />{favorites.length > 0 && <span className="count-bubble">{favorites.length}</span>}</span><span>{t('nav.favorites')}</span></button>
           <button className="header-action" type="button" onClick={() => setCartOpen(true)}><span className="icon-wrap"><Icon name="bag" />{cartCount > 0 && <span className="count-bubble">{cartCount}</span>}</span><span>{t('nav.cart')}</span></button>
           <button className="header-action" type="button" onClick={() => setAccountOpen(true)}><Icon name="user" /><span>{authUser?.user_metadata?.full_name?.split(' ')[0] || t('nav.account')}</span></button>
@@ -1331,7 +1481,7 @@ function App() {
         <div className="footer-bottom"><span>© {new Date().getFullYear()} FENGS LUXE EMPIRE</span><span>{t('footer.made')} <span aria-hidden="true">✦</span></span></div>
       </footer>
 
-      {cartOpen && <CartDrawer cart={cart} user={authUser} initialCountry={destinationCountry} t={t} formatPrice={formatPrice} submitting={orderSubmitting} orderNotice={orderNotice} orderError={orderError} onClose={() => setCartOpen(false)} onChangeQuantity={changeQuantity} onSubmitOrder={submitOrderRequest} onLogin={() => { setCartOpen(false); setAccountOpen(true) }} />}
+      {cartOpen && <CartDrawer cart={cart} user={authUser} initialCountry={destinationCountry} t={t} formatPrice={formatPrice} submitting={orderSubmitting} orderNotice={orderNotice} orderError={orderError} onClose={() => setCartOpen(false)} onChangeQuantity={changeQuantity} onSubmitOrder={submitOrderRequest} onLogin={() => { setCartOpen(false); setAccountOpen(true) }} onRetryNotification={retryOrderNotification} />}
       {accountOpen && <AccountDialog key={authUser?.id || (authRecoveryMode ? 'password-recovery' : 'signed-out')} user={authUser} recoveryMode={authRecoveryMode} isStoreAdmin={isStoreAdmin} localMode={!supabaseEnabled} orders={ordersUserId === authUser?.id ? orders : []} ordersLoading={ordersLoading || (Boolean(authUser) && ordersUserId !== authUser.id)} ordersError={ordersUserId === authUser?.id ? ordersError : ''} t={t} formatPrice={formatPrice} dateLocale={selectedCountry.locale} onLocalSignIn={setAuthUser} onLocalProfileUpdate={setAuthUser} onClose={() => setAccountOpen(false)} onSignOut={signOut} onLoadOrders={reloadOrders} onUpdateOrderStatus={updateOrderStatus} onRecoveryComplete={() => setAuthRecoveryMode(false)} />}
       {detailProduct && <ProductDetailsDialog key={detailProduct.id} product={detailProduct} relatedProducts={products.filter((product) => product.category === detailProduct.category && product.id !== detailProduct.id).slice(0, 4)} favorite={favorites.includes(detailProduct.id)} t={t} formatPrice={formatPrice} onClose={() => setDetailProduct(null)} onAdd={addToCart} onFavorite={toggleFavorite} onView={setDetailProduct} />}
       {toast && <div className="toast" role="status">{toast}</div>}
