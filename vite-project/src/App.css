@@ -939,9 +939,26 @@ body {
 @media (max-width: 760px) {
   body { background-image: linear-gradient(135deg, #e8ecdf8c, #e8ecdf70), url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=80'); }
 }
-.cart-drawer { overflow-y: auto; }
-.cart-items { flex: 0 0 auto; min-height: 72px; max-height: 28vh; }
+.cart-drawer { width: min(520px, 100%); overflow: hidden; }
+.cart-main, .cart-checkout-main { flex: 1; min-height: 0; overflow-y: auto; }
+.cart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 10px; color: #526047; font-size: 11px; }
+.cart-toolbar button { padding: 0; border: 0; color: #817a73; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; }
+.cart-items { flex: 0 0 auto; min-height: 72px; max-height: none; overflow: visible; }
+.cart-item { align-items: flex-start; gap: 12px; padding: 17px 0; }
+.cart-item > img { width: 96px; height: 106px; flex: 0 0 96px; border-radius: 4px; background: #f3f2ed; }
 .cart-item-details { min-width: 0; flex: 1; }
+.cart-item-details > strong { line-height: 1.45; }
+.cart-item-unit-price { color: #817a73; font-size: 9px; }
+.cart-item-purchase { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 3px; }
+.cart-item-purchase > strong { color: #302a26; font-size: 11px; }
+.cart-item-remove { margin-left: auto; }
+.cart-checkout-footer { position: sticky; bottom: 0; padding-top: 12px; border-top: 1px solid var(--line); background: #fff; }
+.cart-checkout-footer .cart-summary { padding-top: 0; border-top: 0; }
+.cart-checkout-footer .cart-summary p { margin-bottom: 12px; }
+.cart-checkout-footer .checkout-button { min-height: 46px; }
+.cart-back-button { align-self: flex-start; margin: 14px 0 4px; padding: 0; border: 0; color: #725632; background: transparent; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.cart-checkout-total { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid #e8e4dc; border-radius: 4px; color: #625a53; background: #faf9f5; font-size: 10px; }
+.cart-checkout-total strong { color: #302a26; }
 
 .admin-header-link { color: #806541; }
 .admin-header-link:hover { color: var(--accent); }
@@ -972,6 +989,8 @@ body {
 .demo-payment-method.is-selected { border-color: #8a7556; background: #f7f3eb; box-shadow: 0 0 0 1px #8a755622; }
 .demo-payment-logo { min-width: 28px; min-height: 19px; display: grid; place-items: center; padding: 2px 5px; border-radius: 3px; color: #fff; background: #536b8e; font-family: Arial, sans-serif; font-size: 9px; font-weight: 800; letter-spacing: -.03em; }
 .demo-payment-logo.visa { color: #173a72; background: #edf2fb; font-style: italic; }
+.demo-payment-logo.paystack { min-width: 52px; color: #fff; background: #08a45c; font-size: 8px; letter-spacing: -.04em; }
+.demo-payment-logo.flutterwave { border-radius: 5px 12px; background: linear-gradient(135deg, #f8a51b, #f97326 48%, #e74568); font-size: 11px; }
 .demo-payment-logo.mastercard { border-radius: 12px; background: linear-gradient(90deg, #e33b36 0 48%, #f0a035 52%); }
 .demo-payment-logo.opay { border-radius: 6px; background: #159a65; font-size: 12px; }
 .demo-payment-logo.gtbank { background: #e47a25; }

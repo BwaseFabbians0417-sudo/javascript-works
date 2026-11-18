@@ -319,6 +319,8 @@ function buildAdminReplyHref(order, t, formatPrice) {
 }
 
 const demoPaymentMethods = [
+  { id: 'paystack', name: 'Paystack', mark: 'Paystack', style: 'paystack' },
+  { id: 'flutterwave', name: 'Flutterwave', mark: 'F', style: 'flutterwave' },
   { id: 'visa', name: 'Visa', mark: 'VISA', style: 'visa' },
   { id: 'mastercard', name: 'Mastercard', mark: 'MC', style: 'mastercard' },
   { id: 'opay', name: 'OPay', mark: 'O', style: 'opay' },
@@ -329,7 +331,7 @@ const demoPaymentMethods = [
 ]
 
 function DemoPaymentPanel({ orderId, amount, t, formatPrice }) {
-  const [selectedMethod, setSelectedMethod] = useState(demoPaymentMethods[0].id)
+  const [selectedMethod, setSelectedMethod] = useState('paystack')
   const [payment, setPayment] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
@@ -372,9 +374,9 @@ function DemoPaymentPanel({ orderId, amount, t, formatPrice }) {
       </div>
       <div className="demo-payment-total"><span>{t('payment.demoAmount')}</span><strong>{formatPrice(amount)}</strong></div>
       <button className="button-primary demo-payment-submit" type="button" disabled={processing} onClick={simulatePayment}>
-        {processing ? t('payment.demoProcessing') : t('payment.demoSubmit')}
+        {processing ? t('payment.demoProcessing') : t('payment.demoSubmit', { provider: demoPaymentMethods.find((method) => method.id === selectedMethod)?.name || 'Paystack' })}
       </button>
-      {payment && <p className="demo-payment-result" role="status"><strong>{t('payment.demoSuccess')}</strong><span>{t('payment.demoReference')}: {payment.reference}</span></p>}
+      {payment && <p className="demo-payment-result" role="status"><strong>{t('payment.demoSuccess')}</strong><span>{payment.provider} · {t('payment.demoReference')}: {payment.reference}</span></p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <p className="demo-payment-disclaimer">{t('payment.demoNotice')}</p>
     </section>
@@ -416,6 +418,7 @@ function CheckoutForm({ user, guest = false, initialCountry, t, onSubmit, submit
 }
 
 function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, orderNotice, orderError, onClose, onChangeQuantity, onSubmitOrder, onLogin, onRetryNotification }) {
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [accountNumberCopied, setAccountNumberCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const [paymentReference, setPaymentReference] = useState('')
@@ -426,6 +429,7 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
     const product = products.find((item) => item.id === Number(id))
     return product ? [{ product, quantity, variant, key }] : []
   })
+  const cartItemCount = cartItems.reduce((count, item) => count + item.quantity, 0)
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
   const orderEmailHref = orderNotice ? buildOrderEmailHref(orderNotice, t, formatPrice) : ''
   const paymentEmailHref = orderNotice ? buildPaymentEmailHref(orderNotice, paymentReference, t) : ''
@@ -505,23 +509,41 @@ function CartDrawer({ cart, user, initialCountry, t, formatPrice, submitting, or
               <button className="order-slip-continue" type="button" onClick={onClose}>{t('slip.continue')}</button>
             </section>
           ) : <div className="empty-cart"><span className="empty-cart-icon"><Icon name="bag" size={32} /></span><h3>{t('cart.emptyTitle')}</h3><p>{t('cart.emptyDescription')}</p><button className="button-primary" type="button" onClick={onClose}>{t('cart.continue')}</button></div>
+        ) : !checkoutOpen ? (
+          <>
+            <div className="cart-toolbar"><strong>{t(cartItemCount === 1 ? 'cart.itemCountOne' : 'cart.itemCount', { count: cartItemCount })}</strong><button type="button" onClick={() => cartItems.forEach(({ key, quantity }) => onChangeQuantity(key, -quantity))}>{t('cart.clear')}</button></div>
+            <div className="cart-main">
+              <div className="cart-items">
+                {cartItems.map(({ product, quantity, variant, key }) => (
+                  <article className="cart-item" key={key}>
+                    <img src={imageUrl(product.image, 240)} alt={product.name} onError={hideUnavailableImage} />
+                    <div className="cart-item-details">
+                      <span>{t(categoryTranslationKeys[product.category] || product.category)} · {variant}</span>
+                      <strong>{product.name}</strong>
+                      <span className="cart-item-unit-price">{formatPrice(product.price)} {t('cart.each')}</span>
+                      <div className="cart-item-purchase"><div className="quantity-controls"><button type="button" onClick={() => onChangeQuantity(key, -1)} aria-label={`Remove one ${product.name}`}><Icon name="minus" size={14} /></button><span>{quantity}</span><button type="button" onClick={() => onChangeQuantity(key, 1)} aria-label={`Add one ${product.name}`}><Icon name="plus" size={14} /></button></div><strong>{formatPrice(product.price * quantity)}</strong></div>
+                    </div>
+                    <button className="cart-item-remove" type="button" onClick={() => onChangeQuantity(key, -quantity)} aria-label={t('cart.removeItem', { name: product.name })}>{t('cart.remove')}</button>
+                  </article>
+                ))}
+              </div>
+            </div>
+            <div className="cart-checkout-footer">
+              <div className="cart-summary"><div><span>{t('cart.subtotal')}</span><strong>{formatPrice(subtotal)}</strong></div><p>{t('cart.deliveryNote')}</p></div>
+              <button className="button-primary checkout-button" type="button" onClick={() => setCheckoutOpen(true)}>{t('cart.checkout')} <Icon name="arrow" size={17} /></button>
+            </div>
+          </>
         ) : (
           <>
-            <div className="cart-items">
-              {cartItems.map(({ product, quantity, variant, key }) => (
-                <article className="cart-item" key={key}>
-                  <img src={imageUrl(product.image, 240)} alt="" onError={hideUnavailableImage} />
-                  <div className="cart-item-details"><span>{t(categoryTranslationKeys[product.category] || product.category)} · {variant}</span><strong>{product.name}</strong><b>{formatPrice(product.price * quantity)}</b><div className="quantity-controls"><button type="button" onClick={() => onChangeQuantity(key, -1)} aria-label={`Remove one ${product.name}`}><Icon name="minus" size={14} /></button><span>{quantity}</span><button type="button" onClick={() => onChangeQuantity(key, 1)} aria-label={`Add one ${product.name}`}><Icon name="plus" size={14} /></button></div></div>
-                  <button className="cart-item-remove" type="button" onClick={() => onChangeQuantity(key, -quantity)} aria-label={t('cart.removeItem', { name: product.name })}>{t('cart.remove')}</button>
-                </article>
-              ))}
+            <button className="cart-back-button" type="button" onClick={() => setCheckoutOpen(false)}>← {t('cart.back')}</button>
+            <div className="cart-checkout-main">
+              <div className="cart-checkout-total"><span>{t('cart.subtotal')}</span><strong>{formatPrice(subtotal)}</strong></div>
+              {user
+                ? <><CheckoutForm user={user} initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}</>
+                : supabaseEnabled
+                  ? <div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.accountRequired')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div>
+                  : <><div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.guestPrompt')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div><CheckoutForm user={null} guest initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}<p className="setup-notice">{t('auth.localMode')}</p></>}
             </div>
-            <div className="cart-summary"><div><span>{t('cart.subtotal')}</span><strong>{formatPrice(subtotal)}</strong></div><p>{t('cart.deliveryNote')}</p></div>
-            {user
-              ? <><CheckoutForm user={user} initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}</>
-              : supabaseEnabled
-                ? <div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.accountRequired')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div>
-                : <><div className="guest-checkout-note"><span className="guest-checkout-mark" aria-hidden="true">✓</span><p>{t('cart.guestPrompt')}</p><button className="guest-signin-link" type="button" onClick={onLogin}>{t('cart.login')}</button></div><CheckoutForm user={null} guest initialCountry={initialCountry} t={t} submitting={submitting} onSubmit={onSubmitOrder} />{orderError && <p className="form-error checkout-error" role="alert">{orderError}</p>}<p className="setup-notice">{t('auth.localMode')}</p></>}
           </>
         )}
       </aside>
@@ -786,7 +808,7 @@ function App() {
   const [savedOnly, setSavedOnly] = useState(false)
   const [cart, setCart] = useState(() => readStorage('fengs-cart-v1', {}, isValidCart))
   const [cartOpen, setCartOpen] = useState(false)
-  const [accountOpen, setAccountOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(() => new URLSearchParams(window.location.search).get('openAdmin') === '1')
   const [authUser, setAuthUser] = useState(getInitialLocalUser)
   const [authRecoveryMode, setAuthRecoveryMode] = useState(false)
   const [storeAdminUserId, setStoreAdminUserId] = useState(null)
@@ -971,6 +993,8 @@ function App() {
   function addToCart(product, variant) {
     const key = `${product.id}:${variant}`
     setCart((currentCart) => ({ ...currentCart, [key]: (currentCart[key] || 0) + 1 }))
+    setOrderNotice('')
+    setOrderError('')
     setToast(t('toast.added'))
     window.setTimeout(() => setToast(''), 2200)
   }

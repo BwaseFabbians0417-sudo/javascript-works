@@ -57,10 +57,25 @@ Deno.serve(async (request) => {
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
   const notificationEmail = Deno.env.get('ORDER_NOTIFICATION_EMAIL')
   const fromEmail = Deno.env.get('ORDER_FROM_EMAIL')
+  const storeAppUrl = Deno.env.get('STORE_APP_URL')
 
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !notificationEmail || !fromEmail) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !notificationEmail || !fromEmail || !storeAppUrl) {
     console.error('Order notification is missing one or more server-side secrets.')
     return respond({ error: 'Order email is not configured.' }, 503)
+  }
+
+  let adminDashboardUrl: string
+  try {
+    const appUrl = new URL(storeAppUrl)
+    const isLocalhost = appUrl.hostname === 'localhost' || appUrl.hostname === '127.0.0.1'
+    if ((!isLocalhost && appUrl.protocol !== 'https:') || appUrl.username || appUrl.password) {
+      return respond({ error: 'The store admin URL is not configured securely.' }, 503)
+    }
+    appUrl.searchParams.set('openAdmin', '1')
+    adminDashboardUrl = appUrl.toString()
+  } catch (error) {
+    console.error('The store admin URL is invalid.', error)
+    return respond({ error: 'The store admin URL is not configured.' }, 503)
   }
 
   let orderId: unknown
@@ -154,7 +169,9 @@ Deno.serve(async (request) => {
       ...items.map((item) => `- ${item.name} (${item.variant}) × ${item.quantity} · ${item.unitPrice * item.quantity} RUB`),
       `Items subtotal: ${order.subtotal} RUB`,
       '',
-      'Review this request in the store admin account before confirming availability, delivery, and final pricing.',
+      'Open the admin dashboard and sign in to review and accept this order:',
+      adminDashboardUrl,
+      'Confirm availability, delivery, and final pricing with the customer before dispatch.',
     ].join('\n')
     const html = `
       <h1>New FENGS LUXE EMPIRE order request</h1>
@@ -170,7 +187,8 @@ Deno.serve(async (request) => {
       <h2>Items</h2>
       <ul>${items.map((item) => `<li>${escapeHtml(item.name)} (${escapeHtml(item.variant)}) × ${item.quantity} — ${item.unitPrice * item.quantity} RUB</li>`).join('')}</ul>
       <p><strong>Items subtotal: ${escapeHtml(order.subtotal)} RUB</strong></p>
-      <p>Review this request in the store admin account before confirming availability, delivery, and final pricing.</p>
+      <p><a href="${escapeHtml(adminDashboardUrl)}">Open the admin dashboard to review and accept this order</a></p>
+      <p>Sign in with the store-owner account. Confirm availability, delivery, and final pricing with the customer before dispatch.</p>
     `
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
